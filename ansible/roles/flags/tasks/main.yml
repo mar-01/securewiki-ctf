@@ -1,1 +1,32 @@
 ---
+# Flag placement
+# Flag values are passed in from Vagrantfile via extra_vars (user_flag, root_flag).
+# Hardcoded for reproducibility - same flags for builder, writeup, solve.sh.
+
+- name: Write user flag to /home/jhartmann/user.txt
+  ansible.builtin.copy:
+    dest: /home/jhartmann/user.txt
+    content: "{{ user_flag }}\n"
+    owner: jhartmann
+    group: jhartmann
+    mode: '0600'
+  # 0600: only readable by jhartmann (or root) - requires SSH foothold
+
+- name: Write root flag to /root/root.txt
+  ansible.builtin.copy:
+    dest: /root/root.txt
+    content: "{{ root_flag }}\n"
+    owner: root
+    group: root
+    mode: '0600'
+  # 0600: only readable by root - requires privesc
+
+- name: Record flag values to /vagrant/flags.txt (host-side)
+  ansible.builtin.copy:
+    dest: /vagrant/flags.txt
+    content: |
+      User flag: {{ user_flag }}
+      Root flag: {{ root_flag }}
+    mode: '0600'
+  delegate_to: localhost
+  become: no

@@ -1,0 +1,14 @@
+## Watch DokuWiki Auth-/Config-Files (Credential Access)
+-w /var/www/dokuwiki/conf/users.auth.php -p r -k cred_access
+-w /var/www/dokuwiki/conf/local.php -p r -k cred_access
+-w /var/www/dokuwiki/data/pages/intern/ -p r -k wiki_internal_read
+
+## Watch sudoers
+-w /etc/sudoers -p w -k sudoers_change
+-w /etc/sudoers.d/ -p w -k sudoers_change
+
+## Backup-Skript-Ausfuehrung
+-w /opt/scripts/backup_cases.sh -p x -k privesc_script
+
+## tar-Aufrufe (Wildcard-Injection-Detection)
+-a always,exit -F arch=b64 -S execve -F path=/usr/bin/tar -k tar_exec

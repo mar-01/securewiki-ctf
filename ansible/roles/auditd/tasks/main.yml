@@ -1,1 +1,23 @@
 ---
+# auditd rules for SOC/defensive learning objectives
+
+- name: Deploy SecureWiki audit rules
+  ansible.builtin.copy:
+    src: securewiki.rules
+    dest: /etc/audit/rules.d/securewiki.rules
+    owner: root
+    group: root
+    mode: '0640'
+  notify: reload auditd
+
+- name: Load audit rules immediately
+  ansible.builtin.command: augenrules --load
+  changed_when: false
+  # changed_when: false weil augenrules immer "success" zurückgibt
+  # ohne Hinweis, ob sich Regeln geändert haben
+
+- name: Ensure auditd is started and enabled
+  ansible.builtin.systemd:
+    name: auditd
+    state: started
+    enabled: yes
