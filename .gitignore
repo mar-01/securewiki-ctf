@@ -1,0 +1,5 @@
+.vagrant/
+*.box
+*.ova
+flags.txt
+*.log

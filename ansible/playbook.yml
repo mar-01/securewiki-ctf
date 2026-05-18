@@ -1,0 +1,15 @@
+---
+# SecureWiki CTF Provisioning Playbook
+- name: Provision SecureWiki CTF Machine
+  hosts: all
+  become: yes
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  roles:
+    - base
+    - users
+    - dokuwiki
+    - samba
+    - flags
+    - auditd
+    - harden
