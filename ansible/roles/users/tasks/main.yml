@@ -1,1 +1,88 @@
 ---
+# User accounts, sudo configuration, and the privilege escalation vector
+
+# ===== Linux user jhartmann =====
+- name: Create jhartmann account
+  ansible.builtin.user:
+    name: jhartmann
+    comment: "Julia Hartmann"
+    password: "{{ jhartmann_password | password_hash('blowfish', rounds=10) }}"
+    shell: /bin/bash
+    create_home: yes
+    state: present
+  # bcrypt-Hash (entspricht passcrypt='bcrypt' in DokuWiki)
+  # jhartmann ist NICHT in sudo-Gruppe -- nur die explizite sudoers-Zeile unten
+
+# ===== Backup-Zielverzeichnis (= Tatort der Wildcard-Injection) =====
+- name: Create case_files directory
+  ansible.builtin.file:
+    path: /home/jhartmann/case_files
+    state: directory
+    owner: jhartmann
+    group: jhartmann
+    mode: '0755'
+
+- name: Place realistic dummy case files
+  ansible.builtin.copy:
+    dest: "/home/jhartmann/case_files/{{ item.name }}"
+    content: "{{ item.content }}"
+    owner: jhartmann
+    group: jhartmann
+    mode: '0644'
+  loop:
+    - name: Mueller_2024.txt
+      content: |
+        Aktennotiz Mueller vs. Schmidt - Stand 2024-11
+        Mandant: Mueller GmbH
+        Aktenzeichen: HuP-2024-0817
+        Naechster Termin: Dezember 2024
+    - name: Schneider_2025.txt
+      content: |
+        Mandantenkontakt Schneider GmbH - Stand 2025-01
+        Ansprechpartner: Frau Dr. Schneider
+        Vertraulichkeitsstufe: hoch
+
+# ===== Backup-Skript (das tar mit Wildcard ausfuehrt) =====
+- name: Ensure /opt/scripts exists with correct owner
+  ansible.builtin.file:
+    path: /opt/scripts
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy backup script /opt/scripts/backup_cases.sh
+  ansible.builtin.copy:
+    dest: /opt/scripts/backup_cases.sh
+    content: |
+      #!/bin/bash
+      # Taegliches Backup der Fallakten - eingerichtet 2024-08 von ext. IT
+      # Ticket #2024-0734, "schneller Helfer fuer jhartmann"
+      cd /home/jhartmann/case_files
+      /usr/bin/tar czf /root/backup.tgz *
+    owner: root
+    group: root
+    mode: '0755'
+  # INTENDED VULNERABILITY: tar mit Wildcard im user-writable Directory
+  # ermoeglicht GTFOBins-Wildcard-Injection (--checkpoint-action=exec=...)
+
+# ===== Sudoers-Eintrag (das ist die Privesc-Vulnerability) =====
+- name: Grant jhartmann passwordless sudo for backup script
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/jhartmann-backup
+    content: |
+      jhartmann ALL=(root) NOPASSWD: /opt/scripts/backup_cases.sh
+    owner: root
+    group: root
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  # INTENDED VULNERABILITY: NOPASSWD auf Skript, das tar mit Wildcard aufruft.
+  # validate verhindert, dass eine kaputte Datei sudo global zerlegt.
+
+# ===== Root mit unguessable password (kein direkter Vektor) =====
+- name: Set strong root password
+  ansible.builtin.user:
+    name: root
+    password: "{{ 'CTF_root_unguessable_2026' | password_hash('sha512') }}"
+  # Root-Login wird in der harden-Role per SSH disabled. Passwort nur als
+  # Fallback fuer Vagrant/Console.
