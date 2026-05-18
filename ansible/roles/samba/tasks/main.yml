@@ -1,1 +1,47 @@
 ---
+# Samba rabbit hole: anonymous read-only "Marketing" share
+
+- name: Install Samba
+  ansible.builtin.apt:
+    name: samba
+    state: present
+
+- name: Create Marketing share directory
+  ansible.builtin.file:
+    path: /srv/samba/marketing
+    state: directory
+    owner: nobody
+    group: nogroup
+    mode: '0755'
+
+- name: Place decoy marketing files
+  ansible.builtin.file:
+    path: "/srv/samba/marketing/{{ item }}"
+    state: touch
+    owner: nobody
+    group: nogroup
+    mode: '0644'
+  loop:
+    - Kanzleiflyer_2024.pdf
+    - Visitenkarte_Hartmann.pdf
+    - Mandantenbroschuere.pdf
+  changed_when: false
+  # changed_when: false weil touch immer "changed" meldet (Timestamp-Update)
+
+- name: Deploy smb.conf
+  ansible.builtin.copy:
+    src: smb.conf
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart samba
+
+- name: Ensure smbd and nmbd are started and enabled
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - smbd
+    - nmbd
