@@ -1,1 +1,76 @@
 ---
+# Base OS configuration für SecureWiki
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Set timezone to UTC
+  community.general.timezone:
+    name: UTC
+  # Konsistente Log-Zeitstempel für spätere Detection-Lernziele
+
+- name: Install essential packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - vim
+      - net-tools
+      - unzip
+      - git
+      - python3-pip
+      - software-properties-common
+      - acl
+      - auditd
+    state: present
+
+- name: Install passlib + bcrypt for Ansible password_hash filter
+  ansible.builtin.pip:
+    name:
+      - passlib
+      - bcrypt
+    executable: pip3
+  # bcrypt brauchen wir, damit password_hash('blowfish') in der users-Role
+  # und der dokuwiki-Role echte bcrypt-Hashes ($2y$) erzeugt
+
+- name: Disable unattended-upgrades service
+  ansible.builtin.systemd:
+    name: unattended-upgrades
+    enabled: no
+    state: stopped
+  failed_when: false
+  # Verhindert, dass gepinnte vulnerable Versionen (DokuWiki Greebo, PHP 7.4)
+  # nachts auto-gepatcht werden
+
+- name: Disable automatic apt periodic upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "0";
+      APT::Periodic::Unattended-Upgrade "0";
+    mode: '0644'
+
+- name: Disable apt-daily timers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: no
+    state: stopped
+  loop:
+    - apt-daily.timer
+    - apt-daily-upgrade.timer
+  failed_when: false
+
+- name: Set MOTD (Hartmann & Partner narrative)
+  ansible.builtin.copy:
+    dest: /etc/motd
+    content: |
+      +----------------------------------------------+
+      |  Hartmann & Partner Rechtsanwaelte           |
+      |  Internes Wiki - securewiki                  |
+      |                                              |
+      |  Authorized access only.                     |
+      |  All activity is logged.                     |
+      +----------------------------------------------+
+    mode: '0644'
