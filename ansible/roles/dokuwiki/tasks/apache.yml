@@ -1,0 +1,52 @@
+---
+# Apache vhost configuration for DokuWiki
+
+- name: Deploy DokuWiki Apache configuration
+  ansible.builtin.template:
+    src: dokuwiki-apache.conf.j2
+    dest: /etc/apache2/conf-available/dokuwiki.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable dokuwiki configuration
+  ansible.builtin.command: a2enconf dokuwiki
+  args:
+    creates: /etc/apache2/conf-enabled/dokuwiki.conf
+  notify: restart apache2
+
+- name: Deploy landing page index.html (Kanzlei narrative)
+  ansible.builtin.copy:
+    dest: /var/www/html/index.html
+    content: |
+      <!DOCTYPE html>
+      <html lang="de">
+      <head>
+      <meta charset="utf-8">
+      <title>Hartmann &amp; Partner Rechtsanwaelte – Intern</title>
+      <style>body{font-family:sans-serif;max-width:640px;margin:3em auto;color:#333}</style>
+      </head>
+      <body>
+      <h1>Hartmann &amp; Partner Rechtsanwaelte</h1>
+      <p>Willkommen im internen Bereich der Kanzlei.</p>
+      <ul>
+        <li><a href="/dokuwiki/">&rarr; Internes Wiki</a></li>
+        <li><a href="/admin/">&rarr; Admin-Konsole</a> (Wartung)</li>
+      </ul>
+      <hr>
+      <p><small>Server-Verwaltung: it@hartmann-legal.local</small></p>
+      </body>
+      </html>
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Deploy robots.txt with /admin/ disallow (rabbit hole hint)
+  ansible.builtin.copy:
+    dest: /var/www/html/robots.txt
+    content: |
+      User-agent: *
+      Disallow: /admin/
+    owner: www-data
+    group: www-data
+    mode: '0644'

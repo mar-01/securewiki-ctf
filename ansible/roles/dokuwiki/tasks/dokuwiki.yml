@@ -1,0 +1,81 @@
+---
+# DokuWiki Greebo headless installation
+
+- name: Create DokuWiki target directory
+  ansible.builtin.file:
+    path: /var/www/dokuwiki
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Download DokuWiki Greebo tarball
+  ansible.builtin.get_url:
+    url: "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-{{ dokuwiki_version }}.tgz"
+    dest: /tmp/dokuwiki.tgz
+    mode: '0644'
+
+- name: Extract DokuWiki to /var/www/dokuwiki
+  ansible.builtin.unarchive:
+    src: /tmp/dokuwiki.tgz
+    dest: /var/www/dokuwiki
+    remote_src: yes
+    extra_opts: ["--strip-components=1"]
+    owner: www-data
+    group: www-data
+    creates: /var/www/dokuwiki/doku.php
+
+- name: Generate random admin password for DokuWiki
+  ansible.builtin.set_fact:
+    dokuwiki_admin_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
+  run_once: yes
+
+- name: Compute bcrypt hashes (force $2y$ prefix for hashcat mode 3200)
+  ansible.builtin.set_fact:
+    admin_hash: "{{ (dokuwiki_admin_password | password_hash('blowfish', rounds=10)) | regex_replace('^\\$2b\\$', '$2y$') }}"
+    jhartmann_hash: "{{ (jhartmann_password | password_hash('blowfish', rounds=10)) | regex_replace('^\\$2b\\$', '$2y$') }}"
+
+- name: Deploy local.php (bcrypt config + wiki metadata)
+  ansible.builtin.template:
+    src: local.php.j2
+    dest: /var/www/dokuwiki/conf/local.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Deploy users.auth.php (admin + jhartmann)
+  ansible.builtin.template:
+    src: users.auth.php.j2
+    dest: /var/www/dokuwiki/conf/users.auth.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Deploy acl.auth.php (closed wiki ACL)
+  ansible.builtin.template:
+    src: acl.auth.php.j2
+    dest: /var/www/dokuwiki/conf/acl.auth.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Remove install.php (security hygiene + prevents wizard from running)
+  ansible.builtin.file:
+    path: /var/www/dokuwiki/install.php
+    state: absent
+
+- name: Create intern wiki pages directory
+  ansible.builtin.file:
+    path: /var/www/dokuwiki/data/pages/intern
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Deploy password policy wiki page (the HuP2023! hint for hashcat)
+  ansible.builtin.copy:
+    src: passwortrichtlinie.txt
+    dest: /var/www/dokuwiki/data/pages/intern/passwortrichtlinie.txt
+    owner: www-data
+    group: www-data
+    mode: '0644'

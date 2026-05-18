@@ -1,0 +1,18 @@
+====== Interne Passwort-Richtlinie ======
+
+Liebe Kolleginnen und Kollegen,
+
+zur Vereinfachung der IT-Verwaltung haben wir folgende Konvention beschlossen:
+
+  * Alle Mitarbeiter-Passwörter beginnen mit unserem Kanzlei-Kürzel **HuP2023!**
+  * Danach folgt ein leicht zu merkender Begriff (Jahreszeit, Stadt, …)
+  * Abschließend zwei Ziffern Ihrer Wahl.
+
+Beispiele (NICHT verwenden):
+
+  * HuP2023!Berlin42
+  * HuP2023!Sommer07
+
+Bitte teilt das nicht extern mit.
+
+— J. Hartmann (Seniorpartner)

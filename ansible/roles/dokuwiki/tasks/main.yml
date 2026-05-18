@@ -1,1 +1,15 @@
 ---
+# DokuWiki Greebo + runcommand Plugin (CVE-2025-51958)
+# Reihenfolge ist wichtig: PHP zuerst, dann DokuWiki, dann Plugin, dann Apache-Config
+
+- name: Install and configure PHP 7.4 + Apache MPM
+  import_tasks: php.yml
+
+- name: Install DokuWiki Greebo (2018-04-22c)
+  import_tasks: dokuwiki.yml
+
+- name: Install vulnerable runcommand plugin
+  import_tasks: plugin.yml
+
+- name: Configure Apache vhost for DokuWiki
+  import_tasks: apache.yml

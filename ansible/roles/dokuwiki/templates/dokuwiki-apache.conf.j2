@@ -1,0 +1,33 @@
+# DokuWiki Apache configuration for SecureWiki
+Alias /dokuwiki /var/www/dokuwiki
+
+<Directory /var/www/dokuwiki>
+    Options +FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>
+
+# DokuWiki hardening: block direct access to internal directories
+<Directory /var/www/dokuwiki/data>
+    Require all denied
+</Directory>
+<Directory /var/www/dokuwiki/conf>
+    Require all denied
+</Directory>
+<Directory /var/www/dokuwiki/bin>
+    Require all denied
+</Directory>
+<Directory /var/www/dokuwiki/inc>
+    Require all denied
+</Directory>
+
+# Plugin directory MUST stay listable - this is the discovery vector for the player!
+<Directory /var/www/dokuwiki/lib/plugins>
+    Options +Indexes
+    Require all granted
+</Directory>
+
+# Rabbit hole: /admin returns 403 (referenced from robots.txt)
+<Location /admin>
+    Require all denied
+</Location>

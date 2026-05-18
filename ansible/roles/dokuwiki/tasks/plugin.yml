@@ -1,0 +1,60 @@
+---
+# runcommand plugin (CVE-2025-51958) - the foothold vulnerability
+
+- name: Download runcommand plugin (master branch from GitHub)
+  ansible.builtin.get_url:
+    url: "{{ runcommand_zip_url }}"
+    dest: /tmp/runcommand.zip
+    mode: '0644'
+
+- name: Extract runcommand plugin
+  ansible.builtin.unarchive:
+    src: /tmp/runcommand.zip
+    dest: /tmp/
+    remote_src: yes
+    creates: /tmp/runcommand-master
+
+- name: Move plugin to DokuWiki plugins directory
+  ansible.builtin.copy:
+    src: /tmp/runcommand-master/
+    dest: /var/www/dokuwiki/lib/plugins/runcommand/
+    remote_src: yes
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  # VULNERABILITY: This is the intentional CVE-2025-51958 attack surface
+
+- name: Deploy plugin activation config
+  ansible.builtin.copy:
+    dest: /var/www/dokuwiki/conf/plugins.local.php
+    content: |
+      <?php
+
+      $plugins['runcommand'] = 1;
+      $conf['plugin']['runcommand']['script_dir'] = 'data/scripts';
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Create plugin script directory
+  ansible.builtin.file:
+    path: /var/www/dokuwiki/data/scripts
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Deploy example listfiles.sh (required for plugin to consider itself configured)
+  ansible.builtin.copy:
+    dest: /var/www/dokuwiki/data/scripts/listfiles.sh
+    content: |
+      #!/bin/bash
+      ls /tmp
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Remove index.html that blocks plugin directory listing
+  ansible.builtin.file:
+    path: /var/www/dokuwiki/lib/plugins/index.html
+    state: absent

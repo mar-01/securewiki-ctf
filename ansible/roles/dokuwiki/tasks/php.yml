@@ -1,0 +1,64 @@
+---
+# PHP 7.4 via ondrej-PPA (Greebo braucht PHP <= 7.4)
+
+- name: Add ondrej/php PPA
+  ansible.builtin.apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+    update_cache: yes
+
+- name: Pin PHP 7.4 from ondrej PPA (prevents accidental upgrade to 8.x)
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/php74.pref
+    content: |
+      Package: php7.4 php7.4-* libapache2-mod-php7.4
+      Pin: release o=LP-PPA-ondrej-php
+      Pin-Priority: 1001
+    mode: '0644'
+
+- name: Install Apache + PHP 7.4 stack
+  ansible.builtin.apt:
+    name:
+      - apache2
+      - php7.4
+      - libapache2-mod-php7.4
+      - php7.4-cli
+      - php7.4-xml
+      - php7.4-mbstring
+      - php7.4-gd
+      - php7.4-zip
+      - php7.4-curl
+    state: present
+
+- name: Disable mpm_event and any PHP 8.x modules
+  community.general.apache2_module:
+    state: absent
+    name: "{{ item }}"
+    ignore_configcheck: yes
+  loop:
+    - mpm_event
+    - php8.1
+    - php8.2
+    - php8.3
+  failed_when: false
+  # PHP 8.x kann als Dependency mitgekommen sein - dismod, damit 7.4 geladen wird
+
+- name: Enable mpm_prefork, php7.4, rewrite
+  community.general.apache2_module:
+    state: present
+    name: "{{ item }}"
+  loop:
+    - mpm_prefork
+    - php7.4
+    - rewrite
+  notify: restart apache2
+
+- name: Suppress PHP deprecation warnings (Greebo uses each() which is deprecated in 7.4)
+  ansible.builtin.lineinfile:
+    path: /etc/php/7.4/apache2/php.ini
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^display_errors\s*=', line: 'display_errors = Off' }
+    - { regexp: '^error_reporting\s*=', line: 'error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT & ~E_NOTICE' }
+  notify: restart apache2
