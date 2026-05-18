@@ -1,1 +1,140 @@
 ---
+# Harden everything that is NOT part of the intended attack path
+
+# ===== Package Pinning =====
+
+- name: Hold packages at current versions (prevent accidental upgrades)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - apache2
+    - apache2-bin
+    - apache2-utils
+    - php7.4
+    - libapache2-mod-php7.4
+    - php7.4-cli
+    - php7.4-xml
+    - php7.4-mbstring
+    - php7.4-gd
+    - php7.4-zip
+    - php7.4-curl
+    - openssh-server
+    - openssh-client
+    - openssh-sftp-server
+    - samba
+    - samba-common
+    - samba-libs
+    - tar
+  failed_when: false
+  # failed_when: false weil manche Pakete je nach Sub-Dependency-Stand
+  # evtl. nicht installiert sind - das soll nicht den Run abbrechen
+
+# ===== SSH Hardening =====
+
+- name: Disable root SSH login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+    validate: '/usr/sbin/sshd -t -f %s'
+  notify: restart sshd
+
+- name: Set MaxAuthTries to 4 (challenge story mentions this hardening)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?MaxAuthTries'
+    line: 'MaxAuthTries 4'
+    validate: '/usr/sbin/sshd -t -f %s'
+  notify: restart sshd
+
+- name: Keep password authentication enabled (required for jhartmann login)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication yes'
+    validate: '/usr/sbin/sshd -t -f %s'
+  notify: restart sshd
+
+- name: Remove cloud-init SSH override (blocks password auth on ubuntu/jammy64 boxes)
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+    state: absent
+  notify: restart sshd
+  # ubuntu/jammy64 ships with this override that disables PasswordAuthentication
+  # regardless of sshd_config - must be removed for jhartmann SSH foothold
+
+# ===== fail2ban =====
+
+- name: Install fail2ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+
+- name: Configure fail2ban for SSH
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [sshd]
+      enabled  = true
+      maxretry = 5
+      findtime = 10m
+      bantime  = 10m
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart fail2ban
+
+- name: Ensure fail2ban is started and enabled
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: started
+    enabled: yes
+
+# ===== UFW Firewall =====
+# UFW LAST - any misconfig would lock vagrant out too,
+# so we set explicit allows for SSH BEFORE enabling.
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: UFW default policy - deny incoming
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: UFW default policy - allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: UFW allow SSH (port 22)
+  community.general.ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+
+- name: UFW allow HTTP (port 80)
+  community.general.ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+
+- name: UFW allow Samba (port 445)
+  community.general.ufw:
+    rule: allow
+    port: '445'
+    proto: tcp
+
+- name: UFW allow NetBIOS (port 139, needed for full Samba functionality)
+  community.general.ufw:
+    rule: allow
+    port: '139'
+    proto: tcp
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  # Default deny + explicit allows = nmap shows only ports 22, 80, 445, 139
