@@ -30,10 +30,10 @@
     dokuwiki_admin_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
   run_once: yes
 
-- name: Compute bcrypt hashes (force $2y$ prefix for hashcat mode 3200)
+- name: Compute bcrypt hashes with deterministic salts (force $2y$ for hashcat)
   ansible.builtin.set_fact:
-    admin_hash: "{{ (dokuwiki_admin_password | password_hash('blowfish', rounds=10)) | regex_replace('^\\$2b\\$', '$2y$') }}"
-    jhartmann_hash: "{{ (jhartmann_password | password_hash('blowfish', rounds=10)) | regex_replace('^\\$2b\\$', '$2y$') }}"
+    admin_hash: "{{ (dokuwiki_admin_password | password_hash('blowfish', rounds=10, salt='SecureWikiAdmnSalt0001')) | regex_replace('^\\$2b\\$', '$2y$') }}"
+    jhartmann_hash: "{{ (jhartmann_password | password_hash('blowfish', rounds=10, salt='SecureWikiJulHa1Salt22')) | regex_replace('^\\$2b\\$', '$2y$') }}"
 
 - name: Deploy local.php (bcrypt config + wiki metadata)
   ansible.builtin.template:

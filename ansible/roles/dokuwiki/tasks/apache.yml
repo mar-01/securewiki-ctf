@@ -9,11 +9,13 @@
     group: root
     mode: '0644'
 
-- name: Enable dokuwiki configuration
-  ansible.builtin.command: a2enconf dokuwiki
-  args:
-    creates: /etc/apache2/conf-enabled/dokuwiki.conf
-  notify: restart apache2
+- name: Enable dokuwiki configuration (symlink in conf-enabled)
+  ansible.builtin.file:
+    src: /etc/apache2/conf-available/dokuwiki.conf
+    dest: /etc/apache2/conf-enabled/dokuwiki.conf
+    state: link
+    owner: root
+    group: root
 
 - name: Deploy landing page index.html (Kanzlei narrative)
   ansible.builtin.copy:
@@ -50,3 +52,9 @@
     owner: www-data
     group: www-data
     mode: '0644'
+
+- name: Restart Apache synchronously to activate dokuwiki vhost
+  ansible.builtin.systemd:
+    name: apache2
+    state: restarted
+  changed_when: false

@@ -6,9 +6,9 @@
   ansible.builtin.user:
     name: jhartmann
     comment: "Julia Hartmann"
-    password: "{{ jhartmann_password | password_hash('blowfish', rounds=10) }}"
     shell: /bin/bash
-    create_home: yes
+    password: "{{ jhartmann_password | password_hash('blowfish', rounds=10) }}"
+    update_password: on_create
     state: present
   # bcrypt-Hash (entspricht passcrypt='bcrypt' in DokuWiki)
   # jhartmann ist NICHT in sudo-Gruppe -- nur die explizite sudoers-Zeile unten
@@ -83,6 +83,7 @@
 - name: Set strong root password
   ansible.builtin.user:
     name: root
-    password: "{{ 'CTF_root_unguessable_2026' | password_hash('sha512') }}"
+    password: "{{ 'CTF_root_unguessable_Pw_2026!' | password_hash('blowfish', rounds=10) }}"
+    update_password: on_create
   # Root-Login wird in der harden-Role per SSH disabled. Passwort nur als
   # Fallback fuer Vagrant/Console.
